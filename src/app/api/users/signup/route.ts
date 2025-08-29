@@ -3,6 +3,7 @@ import User from "@/models/userModel"
 import { NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
+import { sendEmail } from "@/helpers/mailer"
 
 export async function POST(request: NextRequest) {
 
@@ -18,7 +19,11 @@ export async function POST(request: NextRequest) {
         }
 
         //check if user exists
-        const user = await User.findOne({ email })
+        // const user = await User.findOne({ email })
+        const user = await User.findOne({
+            $or: [{ email }, { username }],
+        });
+
 
         if (user) {
             return NextResponse.json({ error: "User already exists" },
@@ -36,6 +41,20 @@ export async function POST(request: NextRequest) {
         })
         const savedUser = await newUser.save()
         console.log(savedUser)
+
+        //Send Verification Email
+
+        try {
+            await sendEmail({
+                email,
+                emailType: "VERIFY",
+                userId: savedUser._id,
+            });
+        } catch (emailErr) {
+            console.error("Email sending failed:", emailErr);
+            // optional: mark user as `emailFailed: true` in DB
+        }
+
         return NextResponse.json({
             message: "User created successfully",
             success: true
